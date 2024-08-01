@@ -1,6 +1,6 @@
 import fetch from "node-fetch";
 import { nanoid } from "nanoid";
-import { writeFile } from "fs/promises";
+import { put } from "@vercel/blob";
 
 const baseUrl = "https://api.elevenlabs.io/v1/";
 export const languages = [
@@ -67,5 +67,36 @@ export const getVoices = async () => {
   } catch (err) {
     console.log("Erro ao obter vozes do ElevenLabs: ", err);
     return [];
+  }
+};
+
+export const generateVoice = async (
+  voiceId: string,
+  text: string,
+  language: string,
+) => {
+  try {
+    if (languages.indexOf(language) === -1) {
+      return {};
+    }
+    const generatedVoice = await request("POST", `text-to-speech/${voiceId}`, {
+      text,
+      data: {
+        language,
+      },
+    });
+    const blob = await generatedVoice.blob();
+    const blobText = await blob.text();
+    if (blobText.includes("voice_not_found")) {
+      return {};
+    }
+    const file_name = nanoid();
+    const vercelBlob = await put(file_name, blob, {
+      access: "public",
+    });
+    return vercelBlob;
+  } catch (err) {
+    console.log("Erro ao gerar voz do ElevenLabs: ", err);
+    return {};
   }
 };
