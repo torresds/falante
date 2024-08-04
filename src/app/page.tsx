@@ -44,7 +44,7 @@ export default function Home() {
       return jsonResult;
     }),
   );
-  const filteredData = data?.filter((voice) => {
+  const filteredData = data?.filter((voice: any) => {
     const includesNameAndTags =
       voice.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       voice.labelsStr.toLowerCase().includes(searchTerm.toLowerCase());
