@@ -1,42 +1,8 @@
 import fetch from "node-fetch";
 import { nanoid } from "nanoid";
 import { put } from "@vercel/blob";
-
+import { languages } from "@/utils/languages";
 const baseUrl = "https://api.elevenlabs.io/v1/";
-export const languages = [
-  "Chinese",
-  "Korean",
-  "Dutch",
-  "Turkish",
-  "Swedish",
-  "Indonesian",
-  "Filipino",
-  "Japanese",
-  "Ukrainian",
-  "Greek",
-  "Czech",
-  "Finnish",
-  "Romanian",
-  "Russian",
-  "Danish",
-  "Bulgarian",
-  "Malay",
-  "Slovak",
-  "Croatian",
-  "Classic Arabic",
-  "Tamil",
-  "English",
-  "Polish",
-  "German",
-  "Spanish",
-  "French",
-  "Italian",
-  "Hindi",
-  "Portuguese",
-  "Hungarian",
-  "Vietnamese",
-  "Norwegian",
-];
 
 export const request = async (
   method: "GET" | "POST",
@@ -50,7 +16,7 @@ export const request = async (
     method,
     headers: {
       "Content-Type": data ? "application/json" : "",
-      "x-api-key": process.env.ELEVENLABS_API_KEY as string,
+      "xi-api-key": process.env.ELEVENLABS_API_KEY as string,
     },
     body: data ? JSON.stringify(data) : undefined,
   });
@@ -70,6 +36,20 @@ export const getVoices = async () => {
   }
 };
 
+export const getVoice = async (voiceId: string) => {
+  try {
+    const voices = await request("GET", `voices/${voiceId}`);
+    console.log(voices.status);
+    if (voices.status == 200) {
+      console.log("Voz:", voices);
+      return voices.json();
+    }
+    return {};
+  } catch (err) {
+    console.log("Erro ao obter voz do ElevenLabs: ", err);
+    return {};
+  }
+};
 export const generateVoice = async (
   voiceId: string,
   text: string,
