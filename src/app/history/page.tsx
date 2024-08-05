@@ -18,8 +18,9 @@ import useLocalStorage from "@/hooks/useLocalStorage";
 export default function HistoryPage() {
   const [localStorage, setLocal] = useLocalStorage(
     "history",
-    [] as { generatedAt: string; url: string }[],
+    [] as { generatedAt: string; url: string; content: string }[],
   );
+  console.log(localStorage);
   return (
     <CenterWrapper>
       {localStorage?.length > 0 ? (
@@ -30,9 +31,21 @@ export default function HistoryPage() {
                 <Card className="w-50" key={i} radius="lg">
                   <CardHeader className="flex gap-3">
                     <div className="flex flex-col">
-                      <p className="text-md font-bold">{`Áudio ${i + 1}`}</p>
+                      <p className="text-md font-bold">{v.content}</p>
+                      <p className="text-xs">
+                        Gerado em{" "}
+                        {new Intl.DateTimeFormat("pt-BR", {
+                          year: "numeric",
+                          month: "long",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        }).format(parseInt(v.generatedAt))}
+                      </p>
                     </div>
                   </CardHeader>
+                  <Divider />
                   <CardBody>
                     <AudioPlayer text="Tocar prévia" audioUrl={v.url} />
                   </CardBody>
@@ -40,9 +53,11 @@ export default function HistoryPage() {
                     <Button
                       as={Link}
                       color="primary"
+                      download
                       className="w-full"
                       variant="solid"
-                      href={v.url}
+                      target="_blank"
+                      href={`${v.url}?download=1`}
                     >
                       Baixar áudio
                     </Button>

@@ -26,6 +26,7 @@ import ResponsiveForm from "@/components/ResponsiveForm";
 import CenterWrapper from "@/components/CenterWrapper";
 import ErrorModal from "@/components/ErrorModal";
 import AudioPlayer from "@/components/AudioPlayer";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
 
 export default function Home() {
   const [searchTerm, setSearchTerm] = React.useState("");
@@ -52,13 +53,6 @@ export default function Home() {
       speakingGender === "any" || voice.labels.gender === speakingGender;
     return includesNameAndTags && onlyGenders;
   });
-
-  const gendersDictionary = {
-    male: "Masculino",
-    female: "Feminino",
-    any: "Qualquer genero",
-  };
-
   const labelsDictionary = {};
 
   return (
@@ -70,11 +64,11 @@ export default function Home() {
     no botão abaixo para tentar novamente."
       />
       <CenterWrapper>
-        <div className="flex flex-col items-center">
+        <div className=" flex flex-col items-center">
           <h1 className="text-4xl text-center mt-4">
             Escolha seu modelo de voz:
           </h1>
-          <div className="flex gap-4 my-4">
+          <div className="flex gap-4 my-4 w-1/2">
             <Input
               fullWidth
               color="primary"
@@ -95,6 +89,16 @@ export default function Home() {
               <SelectItem key="female">Feminino</SelectItem>
               <SelectItem key="any">Qualquer um</SelectItem>
             </Select>
+            <Button
+              as={Link}
+              href="/history"
+              size="lg"
+              color="primary"
+              variant="faded"
+            >
+              Histórico
+            </Button>
+            <ThemeSwitcher />
           </div>
           <div className="md:grid flex flex-col md:grid-cols-3 gap-4 p-4 ">
             {filteredData && filteredData.length > 0 ? (

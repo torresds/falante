@@ -70,7 +70,7 @@ export default function VoicePage({ params }: { params: { voiceId: string } }) {
 
   return (
     <CenterWrapper>
-      <Modal isOpen={generatedVoice != ""}>
+      <Modal hideCloseButton backdrop="blur" isOpen={generatedVoice != ""}>
         <ModalContent>
           {(onClose) => (
             <>
@@ -89,7 +89,13 @@ export default function VoicePage({ params }: { params: { voiceId: string } }) {
                 <Button color="default" as={Link} href="/history">
                   Histórico
                 </Button>
-                <Button as={Link} href={generatedVoice} color="primary">
+                <Button
+                  as={Link}
+                  href={`${generatedVoice}?download=1`}
+                  download
+                  target="_blank"
+                  color="primary"
+                >
                   Baixar aúdio gerado
                 </Button>
                 <Button color="default" onPress={() => setGeneratedVoice("")}>
