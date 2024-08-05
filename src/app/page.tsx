@@ -68,11 +68,10 @@ export default function Home() {
           <h1 className="text-4xl text-center mt-4">
             Escolha seu modelo de voz:
           </h1>
-          <div className="flex gap-4 my-4 w-1/2">
+          <div className="flex md:flex-row flex-col gap-4 my-4 xl:w-1/2">
             <Input
               fullWidth
               color="primary"
-              size="lg"
               placeholder="Pesquise por nome, características..."
               value={searchTerm}
               className="text-xs"

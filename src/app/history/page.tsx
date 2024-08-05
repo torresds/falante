@@ -24,7 +24,7 @@ export default function HistoryPage() {
   return (
     <CenterWrapper>
       {localStorage?.length > 0 ? (
-        <div className="flex gap-2 flex-wrap ">
+        <div className="flex flex-col p-4 m-auto md:flex-wrap md:flex-row gap-1">
           {localStorage.map((v, i) => {
             return (
               <>
