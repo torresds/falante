@@ -1,174 +1,181 @@
 "use client";
 
-import React from "react";
+import { useReducer, useState } from "react";
+import useSWR from "swr";
+
 import {
   Card,
-  CardHeader,
-  CardBody,
+  CardContent,
+  CardDescription,
   CardFooter,
-  Divider,
-  Button,
-  Skeleton,
-  Input,
-  Select,
-  SelectSection,
-  SelectItem,
-  Chip,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Link,
-} from "@nextui-org/react";
-import useSWR from "swr";
-import ResponsiveForm from "@/components/ResponsiveForm";
-import CenterWrapper from "@/components/CenterWrapper";
-import ErrorModal from "@/components/ErrorModal";
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+
 import AudioPlayer from "@/components/AudioPlayer";
 import ThemeSwitcher from "@/components/ThemeSwitcher";
 
-export default function Home() {
-  const [searchTerm, setSearchTerm] = React.useState("");
-  const [speakingGender, setSpeakingGender] = React.useState("any");
+import { cn } from "@/lib/utils";
+import { Voice } from "@/utils/types";
+import { voicesReducer, initialState } from "@/reducers/voicesReducer";
+import { Skeleton } from "@/components/ui/skeleton";
 
-  const { data, error } = useSWR("/api/voices", (...args) =>
+export default function Home() {
+  const [labels, setLabels] = useState(new Map<string, Set<string>>());
+  const [state, dispatch] = useReducer(voicesReducer, initialState);
+  const [isFiltering, setIsFiltering] = useState(false);
+
+  const { error, isLoading } = useSWR("/api/voices", (...args) =>
     fetch(...args).then(async (res) => {
       const jsonResult = await res.json();
-      for (const voice of jsonResult) {
-        voice.labelsStr = Object.keys(voice.labels)
-          .filter((label) => label !== "gender")
-          .map((label) => voice.labels[label])
-          .join(", ");
-      }
-      console.log(jsonResult);
-      return jsonResult;
+      dispatch({ type: "SET_VOICES", payload: jsonResult });
+      const newLabels = new Map<string, Set<string>>();
+      jsonResult.forEach((voice: Voice) => {
+        Object.keys(voice.labels).forEach((key) => {
+          if (!newLabels.has(key)) {
+            newLabels.set(key, new Set());
+          }
+          newLabels.get(key)?.add(voice.labels[key]);
+        });
+      });
+      setLabels(newLabels);
     }),
   );
-  const filteredData = data?.filter((voice: any) => {
-    const includesNameAndTags =
-      voice.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      voice.labelsStr.toLowerCase().includes(searchTerm.toLowerCase());
-    const onlyGenders =
-      speakingGender === "any" || voice.labels.gender === speakingGender;
-    return includesNameAndTags && onlyGenders;
-  });
-  const labelsDictionary = {};
+
+  const addFilter = (label: string, value: string) => {
+    dispatch({ type: "ADD_FILTER", payload: { key: label, value } });
+  };
+
+  const removeFilter = (label: string, value: string) => {
+    dispatch({ type: "REMOVE_FILTER", payload: { key: label, value } });
+  };
+
+  const clearFilters = () => {
+    dispatch({ type: "CLEAR_FILTERS" });
+  };
+
+  const labelsDictionary = {
+    description: "Características",
+    accent: "Sotaque",
+    age: "Idade",
+    use_case: "Uso recomendado",
+    gender: "Gênero",
+  };
 
   return (
     <>
-      <ErrorModal
-        isOpen={!!error}
-        title="Erro ao obter lista de vozes"
-        description="Algo deu errado ao se comunicar com o servidor da aplicação, clique
-    no botão abaixo para tentar novamente."
-      />
-      <CenterWrapper>
-        <div className=" flex flex-col items-center">
+      <div className="grid place-items-center">
+        <div className="flex flex-col items-center">
           <h1 className="text-4xl text-center mt-4">
             Escolha seu modelo de voz:
           </h1>
-          <div className="flex md:flex-row flex-col gap-4 my-4 xl:w-1/2">
-            <Input
-              fullWidth
-              color="primary"
-              placeholder="Pesquise por nome, características..."
-              value={searchTerm}
-              className="text-xs"
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <Select
-              label="Gênero da voz"
-              selectedKeys={[speakingGender]}
-              onChange={(e) => {
-                setSpeakingGender(e.target.value);
-              }}
-            >
-              <SelectItem key="male">Masculino</SelectItem>
-              <SelectItem key="female">Feminino</SelectItem>
-              <SelectItem key="any">Qualquer um</SelectItem>
-            </Select>
-            <Button
-              as={Link}
-              href="/history"
-              size="lg"
-              color="primary"
-              variant="faded"
-            >
-              Histórico
-            </Button>
-            <ThemeSwitcher />
-          </div>
-          <div className="md:grid flex flex-col md:grid-cols-3 gap-4 p-4 ">
-            {filteredData && filteredData.length > 0 ? (
-              filteredData.map((voice: any) => (
-                <Card className="w-50" key={voice.id} radius="lg">
-                  <CardHeader className="flex gap-3">
-                    <div className="flex flex-col">
-                      <p className="text-md font-bold">{voice.name}</p>
-                      <p className="text-xs">{voice.category}</p>
-                    </div>
-                  </CardHeader>
-                  <Divider />
-                  <p className="p-2 text-1xl font-bold">Características:</p>
-                  <div className="flex flex-1 gap-1 p-2">
-                    {Object.keys(voice.labels).map(
-                      (label: any) =>
-                        (label as string) !== "gender" && (
-                          <Chip radius="sm" key={label}>
-                            {voice.labels[label]}
-                          </Chip>
-                        ),
-                    )}
-                  </div>
-
-                  <Divider />
-                  <CardBody>
-                    <AudioPlayer
-                      text="Tocar prévia"
-                      audioUrl={voice.preview_url}
-                    />
-                  </CardBody>
-                  <CardFooter>
-                    <Button
-                      as={Link}
-                      color="primary"
-                      className="w-full"
-                      variant="solid"
-                      href={`/voice/${voice.voice_id}`}
-                    >
-                      Selecionar
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))
-            ) : data ? (
-              <p>Nenhum resultado encontrado</p>
-            ) : (
-              Array.from({ length: 17 }, (_, i) => (
-                <Card className="w-max" key={i} radius="lg">
-                  <CardHeader className="flex gap-3">
-                    <div className="flex flex-col">
-                      <Skeleton className="w-3/5 rounded-lg">
-                        <div className="h-3 w-3/5 rounded-lg bg-default-200"></div>
-                      </Skeleton>
-                    </div>
-                  </CardHeader>
-                  <Divider />
-                  <CardBody>
-                    <Skeleton className="w-3/5 rounded-lg">
-                      <div className="h-3 w-3/5 rounded-lg bg-default-200"></div>
-                    </Skeleton>
-                  </CardBody>
-                  <CardFooter>
-                    <Button color="primary">Carregando...</Button>
-                  </CardFooter>
-                </Card>
-              ))
+          <div className="flex place-center place-items-center flex-row md:flex-row gap-4 my-4 xl:w-auto border rounded p-4">
+            {!isLoading && (
+              <>
+                <Switch
+                  checked={isFiltering}
+                  onClick={() => setIsFiltering(!isFiltering)}
+                  id="filters"
+                />
+                <Label htmlFor="filters">Filtrar modelos</Label>
+                {isFiltering && (
+                  <Button onClick={clearFilters} className="ml-4">
+                    Limpar filtros
+                  </Button>
+                )}
+              </>
             )}
           </div>
+
+          {isFiltering && (
+            <div className="flex flex-col w-full max-w-6xl mb-6 xl:grid xl:grid-cols-3 gap-4">
+              {Array.from(labels.entries()).map(([key, values]) => (
+                <Card
+                  key={key}
+                  className="bg-gray-50 dark:bg-gray-900 shadow-md p-4"
+                >
+                  <CardHeader>
+                    <CardTitle className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">
+                      {labelsDictionary[key as keyof typeof labelsDictionary] ||
+                        key}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex flex-wrap gap-2">
+                    {Array.from(values).map((value) => (
+                      <Badge
+                        key={value}
+                        variant={
+                          state.filters[key]?.includes(value)
+                            ? "default"
+                            : "outline"
+                        }
+                        className={cn(
+                          "cursor-pointer transition",
+                          state.filters[key]?.includes(value)
+                            ? "bg-blue-500 text-white dark:bg-blue-600"
+                            : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+                        )}
+                        onClick={() =>
+                          state.filters[key]?.includes(value)
+                            ? removeFilter(key, value)
+                            : addFilter(key, value)
+                        }
+                      >
+                        {value}
+                      </Badge>
+                    ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
-      </CenterWrapper>
+
+        <div
+          className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4")}
+        >
+          {!isLoading
+            ? state.filteredVoices.map((voice: Voice, index: number) => {
+                return (
+                  <Card key={index} className="min-w-72">
+                    <CardHeader>
+                      <CardTitle>{voice.name}</CardTitle>
+                      <CardDescription>{voice.category}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex gap-1 flex-wrap p-1"></div>
+                      <AudioPlayer
+                        audioUrl={voice.preview_url}
+                        text="Tocar prévia"
+                      />
+                    </CardContent>
+                    <CardFooter>
+                      <Button>Selecionar</Button>
+                    </CardFooter>
+                  </Card>
+                );
+              })
+            : Array.from({ length: 17 }, (_, i) => {
+                return (
+                  <Card key={i} className="min-w-72">
+                    <CardHeader>
+                      <Skeleton className="h-4 w-[250px]" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-4 w-[250px]" />
+                    </CardContent>
+                    <CardFooter>
+                      <Button>Selecionar</Button>
+                    </CardFooter>
+                  </Card>
+                );
+              })}
+        </div>
+      </div>
     </>
   );
 }

@@ -1,7 +1,9 @@
 import fetch from "node-fetch";
 import { nanoid } from "nanoid";
 import { put } from "@vercel/blob";
-import { languages } from "@/utils/languages";
+import { languages, languageNames, languagesCodes } from "@/utils/languages";
+import { Voice } from "@/utils/types";
+
 const baseUrl = "https://api.elevenlabs.io/v1/";
 
 export const request = async (
@@ -23,11 +25,12 @@ export const request = async (
   return response;
 };
 
-export const getVoices = async () => {
+export const getVoices = async (): Promise<Voice[]> => {
   try {
-    const voices = await request("GET", "voices");
-    if (voices.status == 200) {
-      return ((await voices.json()) as any).voices;
+    const apiResponse = await request("GET", "voices");
+    if (apiResponse.status == 200) {
+      const data = (await apiResponse.json()) as { voices: Voice[] };
+      return data.voices;
     }
     return [];
   } catch (err) {
@@ -36,39 +39,58 @@ export const getVoices = async () => {
   }
 };
 
-export const getVoice = async (voiceId: string) => {
+export const getVoice = async (voiceId: string): Promise<Voice> => {
   try {
-    const voices = await request("GET", `voices/${voiceId}`);
-    console.log(voices.status);
-    if (voices.status == 200) {
-      console.log("Voz:", voices);
-      return voices.json();
+    const voiceDetails = await request("GET", `voices/${voiceId}`);
+    if (voiceDetails.status == 200) {
+      const voice = (await voiceDetails.json()) as Voice;
+      return voice;
     }
-    return {};
+    return Promise.reject({});
   } catch (err) {
     console.log("Erro ao obter voz do ElevenLabs: ", err);
-    return {};
+    return Promise.reject(err);
   }
 };
 export const generateVoice = async (
   voiceId: string,
   text: string,
-  language: string,
+  language?: string,
 ) => {
   try {
-    if (languages.indexOf(language) === -1) {
-      return {};
+    if (
+      language &&
+      (!languageNames.includes(language) || !languagesCodes.includes(language))
+    ) {
+      return Promise.reject("language_not_found");
     }
+    const voiceModel = await getVoice(voiceId);
+    if (!voiceModel) {
+      return Promise.reject("voice_not_found");
+    }
+    if (
+      !voiceModel.high_quality_base_model_ids?.length ||
+      voiceModel.high_quality_base_model_ids.includes("eleven_turbo_v2_5")
+    ) {
+      return Promise.reject("model_not_supported");
+    }
+
     const generatedVoice = await request("POST", `text-to-speech/${voiceId}`, {
       text,
       data: {
-        language,
+        language: language
+          ? languageNames.includes(language)
+            ? languages[language]
+            : language
+          : "None",
+        model: language ? "default" : "eleven_turbo_v2_5",
       },
     });
+
     const blob = await generatedVoice.blob();
     const blobText = await blob.text();
     if (blobText.includes("voice_not_found")) {
-      return {};
+      return Promise.reject("voice_not_found");
     }
     const file_name = nanoid();
     const vercelBlob = await put(file_name, blob, {
@@ -77,6 +99,6 @@ export const generateVoice = async (
     return vercelBlob;
   } catch (err) {
     console.log("Erro ao gerar voz do ElevenLabs: ", err);
-    return {};
+    return Promise.reject(err);
   }
 };
