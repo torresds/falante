@@ -86,7 +86,6 @@ export function ComboboxResponsive({
 
 export function OptionList({
   options,
-  selectedValue,
   handleSelect,
 }: {
   options: string[];
