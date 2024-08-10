@@ -2,12 +2,10 @@
 
 import { Button } from "@/components/ui/button";
 import { AudioWaveform } from "lucide-react";
-import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import ThemeSwitcher from "./ThemeSwitcher";
 
 export default function Navbar() {
-  const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {

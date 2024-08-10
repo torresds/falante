@@ -44,12 +44,6 @@ export const VoiceFilter: React.FC<VoiceFilterProps> = ({
     setNewValue("");
   };
 
-  const addFilter = (label: string, value: string) => {
-    const updatedFilters = [...appliedFilters, { label, value }];
-    setAppliedFilters(updatedFilters);
-    onFilterChange(updatedFilters);
-  };
-
   const removeFilter = (label: string, value: string) => {
     const updatedFilters = appliedFilters.filter(
       (filter) => !(filter.label === label && filter.value === value),

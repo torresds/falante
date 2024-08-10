@@ -147,7 +147,7 @@ export default function Home() {
                 <CardContent className="flex flex-col gap-2">
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(voice.labels)
-                      .filter(([_, value]) => !state.labels.has(value))
+                      .filter(([, value]) => !state.labels.has(value))
                       .map(([key, value]) => (
                         <Badge key={key}>{value}</Badge>
                       ))}
