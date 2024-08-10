@@ -45,7 +45,7 @@ function voicesReducer(state: State, action: Action): State {
 
     case "REMOVE_FILTER": {
       const { key, value } = action.payload;
-      const newFilters = {
+      const newFilters: State["filters"] = {
         ...state.filters,
         [key]: state.filters[key].filter((item) => item !== value),
       };
