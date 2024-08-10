@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getVoices } from "@/services/ElevenLabs";
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const voices = (await getVoices()) as any[];
     if (!voices.length) {
@@ -12,5 +12,11 @@ export async function GET(request: Request) {
       );
     }
     return NextResponse.json(voices, { status: 200 });
-  } catch (err) {}
+  } catch (err) {
+    console.error("Erro ao buscar vozes no ElevenLabs: ", err);
+    return NextResponse.json(
+      { error: "Erro ao buscar vozes no ElevenLabs." },
+      { status: 500 },
+    );
+  }
 }

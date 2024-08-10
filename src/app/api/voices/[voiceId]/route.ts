@@ -1,15 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { generateVoice, getVoice } from "@/services/ElevenLabs";
+import { getVoice } from "@/services/ElevenLabs";
 
 export async function GET(
-  request: NextRequest,
+  _: NextRequest,
   { params }: { params: { voiceId: string } },
 ) {
   const { voiceId } = params;
   try {
-    console.log(voiceId);
     const voice = await getVoice(voiceId);
-    console.log(voice);
     if (!voice) {
       return NextResponse.json(
         { error: "Voz não encontrada." },

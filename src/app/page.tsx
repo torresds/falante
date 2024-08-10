@@ -1,174 +1,184 @@
 "use client";
-
-import React from "react";
+import { useReducer, useState, useRef, useEffect } from "react";
 import {
   Card,
-  CardHeader,
-  CardBody,
+  CardContent,
+  CardDescription,
   CardFooter,
-  Divider,
-  Button,
-  Skeleton,
-  Input,
-  Select,
-  SelectSection,
-  SelectItem,
-  Chip,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Link,
-} from "@nextui-org/react";
-import useSWR from "swr";
-import ResponsiveForm from "@/components/ResponsiveForm";
-import CenterWrapper from "@/components/CenterWrapper";
-import ErrorModal from "@/components/ErrorModal";
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import AudioPlayer from "@/components/AudioPlayer";
-import ThemeSwitcher from "@/components/ThemeSwitcher";
+import { cn } from "@/lib/utils";
+import { Voice } from "@/utils/types";
+import { voicesReducer, initialState } from "@/reducers/voicesReducer";
+import { VoiceFilter } from "@/components/VoiceFilter";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { GenerateVoiceForm } from "@/components/VoiceForm";
+import { GeneratedAudioPopUp } from "@/components/GeneratedVoicePopUp";
+
+interface Filter {
+  label: string;
+  value: string;
+}
+
+type VoiceResponse = {
+  voice: {
+    url: string;
+  };
+};
 
 export default function Home() {
-  const [searchTerm, setSearchTerm] = React.useState("");
-  const [speakingGender, setSpeakingGender] = React.useState("any");
+  const [selectedVoiceName, setSelectedVoiceName] = useState<string>("");
+  const [selectedVoiceId, setSelectedVoiceID] = useState<string>("");
+  const [labels, setLabels] = useState<Map<string, Set<string>>>(new Map());
+  const [state, dispatch] = useReducer(voicesReducer, initialState);
+  const [
+    selectedVoiceSupportsMultiLanguage,
+    setSelectedVoiceSupportsMultiLanguage,
+  ] = useState<boolean>(false);
+  const [generatedVoiceUrl, setGeneratedVoiceUrl] = useState<string>("");
+  const formRef = useRef<HTMLDivElement>(null);
 
-  const { data, error } = useSWR("/api/voices", (...args) =>
-    fetch(...args).then(async (res) => {
-      const jsonResult = await res.json();
-      for (const voice of jsonResult) {
-        voice.labelsStr = Object.keys(voice.labels)
-          .filter((label) => label !== "gender")
-          .map((label) => voice.labels[label])
-          .join(", ");
+  useEffect(() => {
+    const fetchVoices = async () => {
+      try {
+        const response = await fetch("/api/voices");
+        const data = await response.json();
+        dispatch({ type: "SET_VOICES", payload: data });
+
+        const labelsMap = new Map<string, Set<string>>();
+        data.forEach((voice: Voice) => {
+          Object.entries(voice.labels).forEach(([key, value]) => {
+            if (!labelsMap.has(key)) {
+              labelsMap.set(key, new Set());
+            }
+            labelsMap.get(key)?.add(value);
+          });
+        });
+        setLabels(labelsMap);
+      } catch (error) {
+        console.error("Erro ao buscar vozes:", error);
       }
-      console.log(jsonResult);
-      return jsonResult;
-    }),
-  );
-  const filteredData = data?.filter((voice: any) => {
-    const includesNameAndTags =
-      voice.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      voice.labelsStr.toLowerCase().includes(searchTerm.toLowerCase());
-    const onlyGenders =
-      speakingGender === "any" || voice.labels.gender === speakingGender;
-    return includesNameAndTags && onlyGenders;
-  });
-  const labelsDictionary = {};
+    };
+
+    fetchVoices();
+  }, []);
+
+  const handleFilterChange = (filters: Filter[]) => {
+    dispatch({ type: "CLEAR_FILTERS" });
+    filters.forEach((filter) => {
+      dispatch({
+        type: "ADD_FILTER",
+        payload: { key: filter.label, value: filter.value },
+      });
+    });
+  };
+
+  const handleSelectVoice = (voiceName: string, voiceID: string) => {
+    setSelectedVoiceName(voiceName);
+    setSelectedVoiceID(voiceID);
+    formRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const onVoiceGenerated = (response: VoiceResponse) => {
+    setGeneratedVoiceUrl(response.voice.url);
+  };
 
   return (
     <>
-      <ErrorModal
-        isOpen={!!error}
-        title="Erro ao obter lista de vozes"
-        description="Algo deu errado ao se comunicar com o servidor da aplicação, clique
-    no botão abaixo para tentar novamente."
+      <GeneratedAudioPopUp
+        audioUrl={generatedVoiceUrl}
+        open={!!generatedVoiceUrl}
+        onClose={() => setGeneratedVoiceUrl("")}
       />
-      <CenterWrapper>
-        <div className=" flex flex-col items-center">
-          <h1 className="text-4xl text-center mt-4">
-            Escolha seu modelo de voz:
-          </h1>
-          <div className="flex md:flex-row flex-col gap-4 my-4 xl:w-1/2">
-            <Input
-              fullWidth
-              color="primary"
-              placeholder="Pesquise por nome, características..."
-              value={searchTerm}
-              className="text-xs"
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <Select
-              label="Gênero da voz"
-              selectedKeys={[speakingGender]}
-              onChange={(e) => {
-                setSpeakingGender(e.target.value);
-              }}
-            >
-              <SelectItem key="male">Masculino</SelectItem>
-              <SelectItem key="female">Feminino</SelectItem>
-              <SelectItem key="any">Qualquer um</SelectItem>
-            </Select>
-            <Button
-              as={Link}
-              href="/history"
-              size="lg"
-              color="primary"
-              variant="faded"
-            >
-              Histórico
-            </Button>
-            <ThemeSwitcher />
-          </div>
-          <div className="md:grid flex flex-col md:grid-cols-3 gap-4 p-4 ">
-            {filteredData && filteredData.length > 0 ? (
-              filteredData.map((voice: any) => (
-                <Card className="w-50" key={voice.id} radius="lg">
-                  <CardHeader className="flex gap-3">
-                    <div className="flex flex-col">
-                      <p className="text-md font-bold">{voice.name}</p>
-                      <p className="text-xs">{voice.category}</p>
-                    </div>
-                  </CardHeader>
-                  <Divider />
-                  <p className="p-2 text-1xl font-bold">Características:</p>
-                  <div className="flex flex-1 gap-1 p-2">
-                    {Object.keys(voice.labels).map(
-                      (label: any) =>
-                        (label as string) !== "gender" && (
-                          <Chip radius="sm" key={label}>
-                            {voice.labels[label]}
-                          </Chip>
-                        ),
-                    )}
-                  </div>
-
-                  <Divider />
-                  <CardBody>
-                    <AudioPlayer
-                      text="Tocar prévia"
-                      audioUrl={voice.preview_url}
-                    />
-                  </CardBody>
-                  <CardFooter>
-                    <Button
-                      as={Link}
-                      color="primary"
-                      className="w-full"
-                      variant="solid"
-                      href={`/voice/${voice.voice_id}`}
-                    >
-                      Selecionar
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))
-            ) : data ? (
-              <p>Nenhum resultado encontrado</p>
-            ) : (
-              Array.from({ length: 17 }, (_, i) => (
-                <Card className="w-max" key={i} radius="lg">
-                  <CardHeader className="flex gap-3">
-                    <div className="flex flex-col">
-                      <Skeleton className="w-3/5 rounded-lg">
-                        <div className="h-3 w-3/5 rounded-lg bg-default-200"></div>
-                      </Skeleton>
-                    </div>
-                  </CardHeader>
-                  <Divider />
-                  <CardBody>
-                    <Skeleton className="w-3/5 rounded-lg">
-                      <div className="h-3 w-3/5 rounded-lg bg-default-200"></div>
-                    </Skeleton>
-                  </CardBody>
-                  <CardFooter>
-                    <Button color="primary">Carregando...</Button>
-                  </CardFooter>
-                </Card>
-              ))
-            )}
-          </div>
+      <div className="grid place-items-center w-full px-4">
+        <div ref={formRef}>
+          <GenerateVoiceForm
+            onVoiceGenerated={onVoiceGenerated}
+            selectedModel={selectedVoiceName}
+            selectedModelId={selectedVoiceId}
+            multiLanguage={selectedVoiceSupportsMultiLanguage}
+          />
         </div>
-      </CenterWrapper>
+
+        <VoiceFilter
+          labels={labels}
+          labelsDictionary={{
+            description: "Características",
+            accent: "Sotaque",
+            age: "Idade",
+            use_case: "Uso recomendado",
+            gender: "Gênero",
+          }}
+          onFilterChange={handleFilterChange}
+        />
+
+        {state.filteredVoices?.length ? (
+          <div
+            className={cn(
+              "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-6xl",
+            )}
+          >
+            {state.filteredVoices.map((voice: Voice) => (
+              <Card
+                key={voice.voice_id}
+                className={
+                  selectedVoiceName === voice.name
+                    ? "border-2 border-blue-500"
+                    : ""
+                }
+              >
+                <CardHeader>
+                  <CardTitle>{voice.name}</CardTitle>
+                  <CardDescription className="flex gap-2">
+                    <p className="font-bold">{voice.category}</p>
+                    {voice.high_quality_base_model_ids.includes(
+                      "eleven_turbo_v2_5",
+                    ) && (
+                      <Badge className="bg-green-600 text-foreground">
+                        Suporta multi-idioma
+                      </Badge>
+                    )}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(voice.labels)
+                      .filter(([, value]) => !state.labels.has(value))
+                      .map(([key, value]) => (
+                        <Badge key={key}>{value}</Badge>
+                      ))}
+                  </div>
+                  <Separator className="my-2" />
+                  <AudioPlayer
+                    audioUrl={voice.preview_url}
+                    text="Tocar prévia"
+                  />
+                </CardContent>
+                <CardFooter>
+                  <Button
+                    onClick={() => {
+                      setSelectedVoiceSupportsMultiLanguage(
+                        voice.high_quality_base_model_ids.includes(
+                          "eleven_turbo_v2_5",
+                        ),
+                      );
+                      handleSelectVoice(voice.name, voice.voice_id);
+                    }}
+                  >
+                    Selecionar
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <p>Carregando...</p>
+        )}
+      </div>
     </>
   );
 }

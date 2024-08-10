@@ -1,7 +1,9 @@
 import fetch from "node-fetch";
 import { nanoid } from "nanoid";
 import { put } from "@vercel/blob";
-import { languages } from "@/utils/languages";
+import { languages, languageNames, languagesCodes } from "@/utils/languages";
+import { Voice } from "@/utils/types";
+
 const baseUrl = "https://api.elevenlabs.io/v1/";
 
 export const request = async (
@@ -12,71 +14,118 @@ export const request = async (
   if (method === "POST" && !data) {
     throw new TypeError("Não é possível realizar requisições POST sem dados.");
   }
+
+  const headers: HeadersInit = {
+    "xi-api-key": process.env.ELEVENLABS_API_KEY as string,
+  };
+
+  if (data) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const response = await fetch(`${baseUrl}${endpoint}`, {
     method,
-    headers: {
-      "Content-Type": data ? "application/json" : "",
-      "xi-api-key": process.env.ELEVENLABS_API_KEY as string,
-    },
+    headers,
     body: data ? JSON.stringify(data) : undefined,
   });
+
+  if (!response.ok) {
+    throw new Error(`Erro na requisição: ${response.statusText}`);
+  }
+
   return response;
 };
 
-export const getVoices = async () => {
+export const getVoices = async (): Promise<Voice[]> => {
   try {
-    const voices = await request("GET", "voices");
-    if (voices.status == 200) {
-      return ((await voices.json()) as any).voices;
-    }
-    return [];
+    const apiResponse = await request("GET", "voices");
+    const data = (await apiResponse.json()) as { voices: Voice[] };
+    return data.voices;
   } catch (err) {
-    console.log("Erro ao obter vozes do ElevenLabs: ", err);
+    console.error("Erro ao obter vozes do ElevenLabs:", err);
     return [];
   }
 };
 
-export const getVoice = async (voiceId: string) => {
+export const getVoice = async (voiceId: string): Promise<Voice> => {
   try {
-    const voices = await request("GET", `voices/${voiceId}`);
-    console.log(voices.status);
-    if (voices.status == 200) {
-      console.log("Voz:", voices);
-      return voices.json();
-    }
-    return {};
+    const voiceDetails = await request("GET", `voices/${voiceId}`);
+    const voice = (await voiceDetails.json()) as Voice;
+    return voice;
   } catch (err) {
-    console.log("Erro ao obter voz do ElevenLabs: ", err);
-    return {};
+    console.error("Erro ao obter voz do ElevenLabs:", err);
+    return Promise.reject(err);
   }
 };
+
 export const generateVoice = async (
   voiceId: string,
   text: string,
-  language: string,
+  language?: string,
 ) => {
   try {
-    if (languages.indexOf(language) === -1) {
-      return {};
+    if (
+      language &&
+      !languageNames.includes(language) &&
+      !languagesCodes.includes(language)
+    ) {
+      return Promise.reject("language_not_found");
     }
+
+    const voiceModel = await getVoice(voiceId);
+    if (!voiceModel) {
+      return Promise.reject("voice_not_found");
+    }
+
+    if (
+      !voiceModel.high_quality_base_model_ids?.includes("eleven_turbo_v2_5")
+    ) {
+      return Promise.reject("model_not_supported");
+    }
+
     const generatedVoice = await request("POST", `text-to-speech/${voiceId}`, {
       text,
-      data: {
-        language,
-      },
+      language: language
+        ? languageNames.includes(language)
+          ? languages[language]
+          : language
+        : "None",
+      model: language ? "default" : "eleven_turbo_v2_5",
     });
+
     const blob = await generatedVoice.blob();
     const blobText = await blob.text();
+
     if (blobText.includes("voice_not_found")) {
-      return {};
+      return Promise.reject("voice_not_found");
     }
-    const file_name = nanoid();
-    const vercelBlob = await put(file_name, blob, {
+
+    const fileName = nanoid();
+    const vercelBlob = await put(fileName, blob, {
       access: "public",
     });
+
     return vercelBlob;
   } catch (err) {
-    console.log("Erro ao gerar voz do ElevenLabs: ", err);
-    return {};
+    console.error("Erro ao gerar voz do ElevenLabs:", err);
+    return Promise.reject(err);
+  }
+};
+
+export const supportMultipleLanguages = async (
+  voiceId: string,
+): Promise<boolean> => {
+  try {
+    const voiceModel = await getVoice(voiceId);
+    if (!voiceModel) {
+      return Promise.reject("voice_not_found");
+    }
+    return (
+      voiceModel.high_quality_base_model_ids?.includes("eleven_turbo_v2_5") ??
+      false
+    );
+  } catch (err) {
+    console.error("Erro ao verificar suporte a múltiplos idiomas:", err);
+    return Promise.reject(err);
   }
 };
